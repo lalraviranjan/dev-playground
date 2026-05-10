@@ -61,21 +61,6 @@ def search_products(category: str, budget: str = None, brand: str = None) -> str
             if p["brand"].lower() == brand.lower()
         ]
 
-    # Budget filtering
-    if budget:
-        try:
-            min_b, max_b = map(int, budget.split("-"))
-
-            filtered = [
-                p for p in filtered
-                if min_b <= p["price"] <= max_b
-            ]
-
-        except Exception:
-            print("Invalid budget format")
-
-    print("DEBUG FILTERED =", filtered)
-
     if not filtered:
         return "No products found matching your criteria."
 
@@ -87,6 +72,7 @@ def search_products(category: str, budget: str = None, brand: str = None) -> str
         )
 
     return result
+
 
 @tool
 def get_product_details(product_name: str) -> str:
