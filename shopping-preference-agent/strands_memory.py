@@ -1,14 +1,10 @@
 #!/usr/bin/python
-"""AgentCore Memory integration for Strands agents."""
 
 import logging
 import uuid
 
-import boto3
 from bedrock_agentcore.memory import MemoryClient
-from bedrock_agentcore.memory.constants import StrategyType
-from boto3.session import Session
-# from lab_helpers.utils import get_ssm_parameter, put_ssm_parameter
+
 from strands.hooks import (
     AfterInvocationEvent,
     HookProvider,
@@ -16,107 +12,171 @@ from strands.hooks import (
     MessageAddedEvent,
 )
 
-boto_session = Session()
-REGION = boto_session.region_name
+# =========================================================
+# CONFIG
+# =========================================================
+
+REGION = "us-east-1"
 
 logger = logging.getLogger(__name__)
 
 ACTOR_ID = "customer_001"
+
 SESSION_ID = str(uuid.uuid4())
 
-memory_client = MemoryClient(region_name=REGION)
-memory_name = "CustomerSupportMemory"
-# memoryid= "" should be hard coded
-
-# def delete_memory(memory_hook):
-#     try:
-#         ssm_client = boto3.client("ssm", region_name=REGION)
-
-#         memory_client.delete_memory(memory_id=memory_hook.memory_id)
-#         ssm_client.delete_parameter(Name="/app/customersupport/agentcore/memory_id")
-#     except Exception:
-#         pass
+# =========================================================
+# MEMORY HOOKS
+# =========================================================
 
 class CustomerSupportMemoryHooks(HookProvider):
-    """Memory hooks for customer support agent"""
 
     def __init__(
-        self, memory_id: str, client: MemoryClient, actor_id: str, session_id: str
+        self,
+        memory_id: str,
+        client: MemoryClient,
+        actor_id: str,
+        session_id: str,
     ):
+
         self.memory_id = memory_id
         self.client = client
         self.actor_id = actor_id
         self.session_id = session_id
-        self.namespaces = {
-            i["type"]: i["namespaces"][0]
-            for i in self.client.get_memory_strategies(self.memory_id)
-        }
+
+        # LAZY LOAD
+        self.namespaces = None
+
+    # =====================================================
+    # LAZY LOAD MEMORY STRATEGIES
+    # =====================================================
+
+    def load_namespaces(self):
+
+        if self.namespaces is None:
+
+            print("Loading memory namespaces...")
+
+            strategies = self.client.get_memory_strategies(
+                self.memory_id
+            )
+
+            self.namespaces = {
+                i["type"]: i["namespaces"][0]
+                for i in strategies
+            }
+
+    # =====================================================
+    # RETRIEVE MEMORY
+    # =====================================================
 
     def retrieve_customer_context(self, event: MessageAddedEvent):
-        """Retrieve customer context before processing support query"""
-        messages = event.agent.messages
-        if (
-            messages[-1]["role"] == "user"
-            and "toolResult" not in messages[-1]["content"][0]
-        ):
-            user_query = messages[-1]["content"][0]["text"]
 
-            try:
+        try:
+
+            self.load_namespaces()
+
+            messages = event.agent.messages
+
+            if (
+                messages[-1]["role"] == "user"
+                and "toolResult" not in messages[-1]["content"][0]
+            ):
+
+                user_query = messages[-1]["content"][0]["text"]
+
                 all_context = []
 
                 for context_type, namespace in self.namespaces.items():
-                    # *** AGENTCORE MEMORY USAGE *** - Retrieve customer context from each namespace
+
                     memories = self.client.retrieve_memories(
                         memory_id=self.memory_id,
-                        namespace=namespace.format(actorId=self.actor_id),
+                        namespace=namespace.format(
+                            actorId=self.actor_id
+                        ),
                         query=user_query,
                         top_k=3,
                     )
-                    # Post-processing: Format memories into context strings
+
                     for memory in memories:
+
                         if isinstance(memory, dict):
+
                             content = memory.get("content", {})
+
                             if isinstance(content, dict):
-                                text = content.get("text", "").strip()
+
+                                text = content.get(
+                                    "text",
+                                    ""
+                                ).strip()
+
                                 if text:
+
                                     all_context.append(
                                         f"[{context_type.upper()}] {text}"
                                     )
 
-                # Inject customer context into the query
+                # Inject memory context
                 if all_context:
+
                     context_text = "\n".join(all_context)
+
                     original_text = messages[-1]["content"][0]["text"]
+
                     messages[-1]["content"][0]["text"] = (
-                        f"Customer Context:\n{context_text}\n\n{original_text}"
+                        f"Customer Context:\n"
+                        f"{context_text}\n\n"
+                        f"{original_text}"
                     )
-                    logger.info(f"Retrieved {len(all_context)} customer context items")
 
-            except Exception as e:
-                logger.error(f"Failed to retrieve customer context: {e}")
+        except Exception as e:
 
-    def save_support_interaction(self, event: AfterInvocationEvent):
-        """Save customer support interaction after agent response"""
+            logger.error(
+                f"Failed retrieving memory: {e}"
+            )
+
+    # =====================================================
+    # SAVE MEMORY
+    # =====================================================
+
+    def save_support_interaction(
+        self,
+        event: AfterInvocationEvent
+    ):
+
         try:
+
             messages = event.agent.messages
-            if len(messages) >= 2 and messages[-1]["role"] == "assistant":
-                # Get last customer query and agent response
+
+            if (
+                len(messages) >= 2
+                and messages[-1]["role"] == "assistant"
+            ):
+
                 customer_query = None
                 agent_response = None
 
                 for msg in reversed(messages):
-                    if msg["role"] == "assistant" and not agent_response:
+
+                    if (
+                        msg["role"] == "assistant"
+                        and not agent_response
+                    ):
+
                         agent_response = msg["content"][0]["text"]
+
                     elif (
                         msg["role"] == "user"
                         and not customer_query
                         and "toolResult" not in msg["content"][0]
                     ):
+
                         customer_query = msg["content"][0]["text"]
+
                         break
 
                 if customer_query and agent_response:
-                    # *** AGENTCORE MEMORY USAGE *** - Save the support interaction
+
                     self.client.create_event(
                         memory_id=self.memory_id,
                         actor_id=self.actor_id,
@@ -126,13 +186,27 @@ class CustomerSupportMemoryHooks(HookProvider):
                             (agent_response, "ASSISTANT"),
                         ],
                     )
-                    logger.info("Saved support interaction to memory")
+
+                    print("Memory saved successfully")
 
         except Exception as e:
-            logger.error(f"Failed to save support interaction: {e}")
 
-    def register_hooks(self, registry: HookRegistry) -> None:
-        """Register customer support memory hooks"""
-        registry.add_callback(MessageAddedEvent, self.retrieve_customer_context)
-        registry.add_callback(AfterInvocationEvent, self.save_support_interaction)
-        logger.info("Customer support memory hooks registered")
+            logger.error(
+                f"Failed saving memory: {e}"
+            )
+
+    # =====================================================
+    # REGISTER HOOKS
+    # =====================================================
+
+    def register_hooks(self, registry: HookRegistry):
+
+        registry.add_callback(
+            MessageAddedEvent,
+            self.retrieve_customer_context
+        )
+
+        registry.add_callback(
+            AfterInvocationEvent,
+            self.save_support_interaction
+        )

@@ -1,8 +1,4 @@
 from strands.tools import tool
-from ddgs.exceptions import DDGSException, RatelimitException
-from ddgs import DDGS
-from strands_tools import retrieve
-import boto3
 
 # MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 MODEL_ID = "amazon.nova-micro-v1:0"

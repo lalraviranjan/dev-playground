@@ -1,0 +1,5 @@
+strands-agents[otel]
+strands-agents-tools
+bedrock-agentcore
+aws-opentelemetry-distro~=0.12.1
+boto3
