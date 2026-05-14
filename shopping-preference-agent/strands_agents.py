@@ -1,18 +1,39 @@
 from strands.tools import tool
 
 # MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 MODEL_ID = "amazon.nova-micro-v1:0"
+# MODEL_ID = "amazon.nova-lite-v1:0"
 
-# System prompt defining the agent's role and capabilities
-SYSTEM_PROMPT = """You are a smart and personalized shopping assistant for an e-commerce platform.
+# # System prompt defining the agent's role and capabilities
+# SYSTEM_PROMPT = """You are a smart and personalized shopping assistant for an e-commerce platform.
 
-Your role is to:
-- Understand user shopping needs such as product type, budget, brand, and usage
-- Remember user preferences and use them automatically in future recommendations
-- Provide relevant product suggestions using available tools
-- Ask clarifying questions if requirements are unclear
-- Be friendly, concise, and helpful in all interactions
-- Continuously improve recommendations based on past interactions
+# Your role is to:
+# - Understand user shopping needs such as product type, budget, brand, and usage
+# - Remember user preferences and use them automatically in future recommendations
+# - Provide relevant product suggestions using available tools
+# - Ask clarifying questions if requirements are unclear
+# - Be friendly, concise, and helpful in all interactions
+# - Continuously improve recommendations based on past interactions
+
+# You have access to the following tools:
+# 1. search_products() - To find products based on category, budget, and brand
+# 2. get_product_details() - To provide detailed specifications of a product
+# 3. compare_products() - To compare multiple products
+# 4. save_user_preference() - To store user preferences for future use
+
+# Always use the appropriate tool to provide accurate and personalized recommendations instead of making assumptions."""
+
+SYSTEM_PROMPT = """
+You are a fast and direct shopping assistant.
+
+Rules:
+- Give direct recommendations immediately.
+- Avoid unnecessary clarification questions.
+- Assume practical defaults if information is missing.
+- Use tools immediately whenever possible.
+- Keep answers concise and practical.
+- Never expose internal thinking.
 
 You have access to the following tools:
 1. search_products() - To find products based on category, budget, and brand
@@ -20,7 +41,8 @@ You have access to the following tools:
 3. compare_products() - To compare multiple products
 4. save_user_preference() - To store user preferences for future use
 
-Always use the appropriate tool to provide accurate and personalized recommendations instead of making assumptions."""
+Always use the appropriate tool to provide accurate and personalized recommendations instead of making assumptions.
+"""
 
 @tool
 def search_products(category: str, budget: str = None, brand: str = None) -> str:

@@ -4,7 +4,8 @@ import logging
 import uuid
 
 from bedrock_agentcore.memory import MemoryClient
-
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
+from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 from strands.hooks import (
     AfterInvocationEvent,
     HookProvider,
@@ -20,9 +21,65 @@ REGION = "us-east-1"
 
 logger = logging.getLogger(__name__)
 
-ACTOR_ID = "customer_001"
+# ACTOR_ID = "customer_001"
 
 SESSION_ID = str(uuid.uuid4())
+
+# Create memory config
+def create_memory_config(
+    memory_id: str,
+    actor_id: str,
+    session_id: str
+):
+    """
+    Create AgentCore memory configuration.
+    """
+
+    return AgentCoreMemoryConfig(
+        memory_id=memory_id,
+
+        session_id=session_id,
+
+        actor_id=actor_id,
+
+        retrieval_config={
+
+            "support/customer/{actorId}/semantic/":
+                RetrievalConfig(
+                    top_k=3,
+                    relevance_score=0.45
+                ),
+
+            "support/customer/{actorId}/preferences/":
+                RetrievalConfig(
+                    top_k=3,
+                    relevance_score=0.45
+                )
+        }
+    )
+
+def create_session_manager(
+    memory_id: str,
+    actor_id: str,
+    session_id: str,
+    region: str
+):
+    """
+    Create AgentCore session manager.
+    """
+
+    memory_config = create_memory_config(
+        memory_id=memory_id,
+        actor_id=actor_id,
+        session_id=session_id
+    )
+
+    session_manager = AgentCoreMemorySessionManager(
+        agentcore_memory_config=memory_config,
+        region_name=region
+    )
+
+    return session_manager
 
 # =========================================================
 # MEMORY HOOKS
