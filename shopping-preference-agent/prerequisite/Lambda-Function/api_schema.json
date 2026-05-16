@@ -1,0 +1,63 @@
+[
+    {
+        "name": "search_products",
+        "description": "Search products based on category, optional budget, and optional brand preference",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Product category to search for"
+                },
+                "budget": {
+                    "type": "string",
+                    "description": "Optional budget range for products"
+                },
+                "brand": {
+                    "type": "string",
+                    "description": "Optional preferred brand name"
+                }
+            },
+            "required": [
+                "category"
+            ]
+        }
+    },
+    {
+        "name": "get_product_details",
+        "description": "Retrieve detailed specifications and features of a product",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "product_name": {
+                    "type": "string",
+                    "description": "Name of the product"
+                }
+            },
+            "required": [
+                "product_name"
+            ]
+        }
+    },
+    {
+        "name": "compare_products",
+        "description": "Compare two products and provide recommendation summary",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "product1": {
+                    "type": "string",
+                    "description": "First product name"
+                },
+                "product2": {
+                    "type": "string",
+                    "description": "Second product name"
+                }
+            },
+            "required": [
+                "product1",
+                "product2"
+            ]
+        }
+    }
+]
